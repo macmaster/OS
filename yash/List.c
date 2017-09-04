@@ -35,21 +35,23 @@ List *List_new() {
 		list->size = 0;
 		list->head = NULL;
 		list->tail = NULL;
+		return list;
+	} else {
+		return NULL;
 	}
-	return list;
 }
 
 /**
  * Cleans up the List and frees resources.
  */
-void List_free(List * list) {
+void List_free(List * list, void (*freeData) (void *)) {
 	ListNode *curr = list->head;
 	ListNode *next = list->head;
 
 	// free list nodes
 	while (curr) {
 		next = curr->next;
-		free(curr->data);
+		freeData(curr->data);
 		free(curr);
 		curr = next;
 	}
@@ -108,7 +110,7 @@ bool List_insert(List * list, int pos, void *data) {
 /**
  * Removes an item from the list at the given position.
  */
-bool List_remove(List * list, int pos) {
+bool List_remove(List * list, int pos, void (*freeData) (void *)) {
 	if (!list || pos < 0 || pos >= list->size)
 		return false;
 
@@ -134,7 +136,7 @@ bool List_remove(List * list, int pos) {
 	}
 
 	// free node
-	free(node->data);
+	freeData(node->data);
 	free(node);
 	list->size -= 1;
 	return true;

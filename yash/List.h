@@ -33,7 +33,7 @@ List *List_new();
 /**
  * Cleans up the List and frees resources.
  */
-void List_free(List *list);
+void List_free(List *list, void (*freeData)(void *));
 
 /**
  * Adds a new item to the end of the list.
@@ -48,7 +48,7 @@ bool List_insert(List *list, int pos, void *data);
 /**
  * Removes an item from the list at the given position.
  */
-bool List_remove(List *list, int pos);
+bool List_remove(List *list, int pos, void (*freeData)(void *));
 
 /**
  * Gets the item at the given position.

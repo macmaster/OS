@@ -14,15 +14,17 @@
 #include "List.h"
 #include "Job.h"
 #include "bool.h"
-#include "yash.h"
 
 // lines do not execeed 2000 chars
 #define LINE_SIZE 2500
 
-static int split(char **, char *);
+static void yash(char *);
 
 char **ENVP = NULL;
-static void printenv();
+static void printenv() {
+	for (char **env = ENVP; *env != NULL; env++)
+		printf("%s\n", *env);
+}
 
 int main(int argc, char **argv, char **envp) {
 	char line[LINE_SIZE];
@@ -38,44 +40,24 @@ int main(int argc, char **argv, char **envp) {
 	return errno;
 }
 
-void yash(char *line) {
-	bool isPipe = strchr(line, '|') ? true : false;
+static void yash(char *line) {
 	bool isBackground = strrchr(line, '&') ? true : false;
-
-	char *args[LINE_SIZE / 2];
-	int count = split(args, line);
+	printf("isBackground: %s\n", isBackground ? "yes" : "no");
 
 	int cpid = fork();
 	if (cpid < 0) {
-		fprintf(stderr, "yash: failed to spawn new process! exiting...\n");
+		fprintf(stderr, "yash: failed to spawn new process: exiting...\n");
 		exit(errno);
 	} else if (cpid == 0) {
-		// child process
-		// redirs(tokens, count);
-		exit(execvp(args[0], args));
+		setpgid(0, 0);	// start new pgrp for job. 
+		// printf("child pgrp: %d\n", getpgrp());
+		Job *job = Job_new(getpgrp(), line);
+		Job_execute(job);
+		exit(errno);
 	} else {
 		// parent process
+		// printf("parent pgrp: %d\n", getpgrp());
 		wait(NULL);
 	}
 }
 
-static int split(char **tokens, char *line) {
-	const char *delim = " \t\n";
-	char *token = strtok(line, delim);
-	int count = 0;
-
-	while (token != NULL) {
-		// printf("%d: %s\n", count, token);
-		tokens[count] = strdup(token);
-		token = strtok(NULL, delim);
-		count += 1;
-	}
-
-	tokens[count] = (char *)NULL;
-	return count;
-}
-
-static void printenv() {
-	for (char **env = ENVP; *env != NULL; env++)
-		printf("%s\n", *env);
-}

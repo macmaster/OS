@@ -1,6 +1,6 @@
 CC = gcc
-CFLAGS = -g -Wall  # -pedantic
-SRC = yash.c List.c
+CFLAGS = -g -Wall -std=c99 # -pedantic
+SRC = yash.c List.c Job.c
 BACKUP = $(SRC:.c=.c~)
 OBJ = $(SRC:.c=.o)
 MAIN = yash
