@@ -5,6 +5,7 @@
  * EID : rpm953
  */
 
+#include <sched.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <unistd.h>
@@ -22,17 +23,16 @@
 	char *line; // command that was run.
 } Job; */
 
-// static char *strclone(const char *token);
 static int split(char **tokens, const char *line, const char *delim);
 
 /**
  * Creates a new job object.
  */
-Job *Job_new(int pgid, const char *line) {
+Job *Job_new(int number, const char *line) {
 	Job *job = (Job *) malloc(sizeof(Job));
 	if (job) {
-		job->pgid = pgid;
-		job->number = -1;	// invalid
+		job->pgid = -1; // invalid
+		job->number = number;
 		job->stopped = true;
 		job->line = strdup(line);
 		return job;
@@ -45,7 +45,7 @@ Job *Job_new(int pgid, const char *line) {
  * Frees a Job object.
  */
 void Job_free(void *job) {
-	// kill(-((Job *) job)->pgid, SIGTERM);
+	kill(-((Job *) job)->pgid, SIGTERM);
 	free(((Job *) job)->line);
 	free(job);
 }
@@ -54,15 +54,12 @@ void Job_free(void *job) {
  * Starts executing a job.
  * Kicks off all the jobs in process id.
  */
-void Job_execute(const Job * job) {
+void Job_execute(Job * job) {
 	int prev[2], curr[2]; // pipes.
 	char *command[1250], *args[1250];
 
 	int numCommands = split(command, job->line, "|&\n");
 	for (int i = 0; i < numCommands; ++i) {
-		// printf("%d) %s\n", getpid(), command[i]);
-		split(args, command[i], " \n\t");
-
 		// create pipes.
 		prev[0] = curr[0];
 		prev[1] = curr[1];
@@ -71,31 +68,43 @@ void Job_execute(const Job * job) {
 		}
 		
 		int cpid = fork();
-		if (cpid > 0) {
-			setpgid(0, job->pgid);
-			printf("(%d, %d, %d) %s\n", getpid(), getpgid(0), getsid(0), command[i]);
+		if (cpid == 0) {
+			// printf("[%d] (%d, %d, %d) %s\n", job->pgid, getpid(), getpgid(0), getsid(0), command[i]);
+			signal(SIGINT, SIG_DFL);
+			signal(SIGTSTP, SIG_DFL);
+			signal(SIGCHLD, SIG_DFL);
+			signal(SIGPIPE, SIG_DFL);
+			signal(SIGTTOU, SIG_DFL);
+
 
 			// pipe input
 			if(i > 0) { 
-				printf ("input pipe %d\n", getpid());
 				dup2(prev[0], STDIN_FILENO);
 				close(prev[1]); 
 			}
 
 			// pipe output
 			if(i < (numCommands - 1)) {
-				printf ("output pipe %d\n", getpid());
 				dup2(curr[1], STDOUT_FILENO);
 				close(curr[0]);
 			}
 
+			split(args, command[i], " \n\t");
 			execvp(args[0], args);
 			fprintf(stderr, "yash: %s: command not found\n", args[0]);
 			exit(errno);
-		} else if(cpid == 0){
-			//	printf("%d child.\n", getpid());
-		} else {
-			printf("error: cpid is %d\n", cpid);
+		} else if (cpid > 0 && i == 0) {
+			// first command is the group leader.
+			setpgid(cpid, cpid);
+			job->pgid = cpid;
+			job->stopped = false;
+		} else if (cpid > 0 && i > 0) {
+			// parent closes pipe.
+			setpgid(cpid, job->pgid);
+			close(prev[0]);
+			close(prev[1]);
+		} else if (cpid < 0) {
+			fprintf(stderr, "yash: failed to fork new process: exiting...\n");
 			exit(errno);
 		}
 	}
@@ -108,9 +117,7 @@ void Job_execute(const Job * job) {
 const char *Job_status(Job * job) {
 	int wstatus = 0;
 	int pid = waitpid(-(job->pgid), &wstatus, WNOHANG | WUNTRACED | WCONTINUED);
-	if (pid == -1) {
-		return strdup("Done");
-	} else if (pid > 0 && WIFEXITED(wstatus)) {
+	if ((pid == -1) || (pid > 0 && WIFEXITED(wstatus))) {
 		return strdup("Done");
 	} else {
 		return job->stopped ? strdup("Stopped") : strdup("Running");
@@ -135,13 +142,3 @@ static int split(char **tokens, const char *line, const char *delim) {
 	return count;
 }
 
-/**
- * Duplicates a string object on the heap.
- */
-// static char *strclone(const char *token) {
-//      if (!token)
-//              return NULL;
-//      int len = strlen(token) + 1;
-//      char *word = (char *)malloc(len);
-//      return word != NULL ? strncpy(word, token, len + 1) : NULL;
-// }

@@ -20,7 +20,7 @@ typedef struct {
 /**
  * creates a new job object.
  */
-Job *Job_new(int pgid, const char *line);
+Job *Job_new(int number, const char *line);
 
 /**
  * frees a job object.
@@ -31,7 +31,7 @@ void Job_free(void *job);
  * start executing a job.
  * kicks off all the jobs in process id.
  */
-void Job_execute(const Job *job);
+void Job_execute(Job *job);
 
 /**
  * returns the status of a job.

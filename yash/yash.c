@@ -18,13 +18,11 @@
 // lines do not execeed 2000 chars
 #define LINE_SIZE 2500
 
-static int FgGroup;		// current foreground process.
 static List *JobList;		// linked list for job tracking.
 
 static void yash(char *);
 static void resume(bool fg);
 static void foreground(int pgid);
-static void signalHandler(int signum);
 static void updateJobList();
 static void printJobList();
 
@@ -42,12 +40,12 @@ int main(int argc, char **argv, char **envp) {
 
 	// globals
 	ENVP = envp;
-	FgGroup = -1;
 	JobList = List_new();
-	signal(SIGINT, signalHandler);
-	signal(SIGTSTP, signalHandler);
-	signal(SIGCHLD, signalHandler);
-	signal(SIGPIPE, signalHandler);
+	signal(SIGINT, SIG_IGN);
+	signal(SIGTSTP, SIG_IGN);
+	signal(SIGCHLD, SIG_IGN);
+	signal(SIGPIPE, SIG_IGN);
+	signal(SIGTTOU, SIG_IGN);
 
 	printf(prompt);
 	while (fgets(line, sizeof(line), stdin)) {
@@ -76,40 +74,20 @@ int main(int argc, char **argv, char **envp) {
 
 static void yash(char *line) {
 	updateJobList();
-	int cpid = fork();
-	if (cpid < 0) {
-		fprintf(stderr, "yash: failed to spawn new process: exiting...\n");
-		List_free(JobList, Job_free);
-		exit(errno);
-	} else if (cpid == 0) {
-		// child process
-		setsid();	// start new pgrp for job. 
-		Job *job = Job_new(getpgrp(), line);
-		job->stopped = false;
-		Job_execute(job);
-		exit(errno);
-	} else {
-		// create a new job tracker
-		Job *job = Job_new(cpid, line);
-		if (JobList->size > 0) {
-			job->number = ((Job *) List_get(JobList, 0))->number + 1;
-		} else {	// first job
-			job->number = 1;
-		}
 
-		// push job to stack
-		List_insert(JobList, 0, job);
-		job->stopped = false;
+	// next job num
+	Job *top = ((Job *) List_get(JobList, 0));
+	int number = top ? top->number + 1 : 1; 
 
-		while((waitpid(-cpid, NULL, WNOHANG) == -1) && (errno == ECHILD)){
-		// 	printf("waiting for %d to be created...\n", cpid);
-		}
+	// push job to stack
+	Job *job = Job_new(number, line);
+	List_insert(JobList, 0, job);
+	Job_execute(job);
 
-		if (!strrchr(line, '&')) {
-			foreground(cpid);
-		} else {	
-			printf("[%d] + %s\t%s", job->number, Job_status(job), job->line);
-		}
+	if (!strrchr(line, '&')) {
+		foreground(job->pgid);
+	} else {	
+		printf("[%d] + %s\t%s", job->number, Job_status(job), job->line);
 	}
 }
 
@@ -138,47 +116,31 @@ static void resume(bool fg) {
  * watches a process group in the foreground.
  */
 static void foreground(int pgid) {
-	FgGroup = pgid;
-	
-	int wstatus = 0, task = 0;
-	while((task = waitpid(-pgid, &wstatus, WUNTRACED)) >= 0){
-		printf("finished waiting for %d in group %d.\n", task, -pgid);
+	int wstatus = 0;
+	tcsetpgrp(STDIN_FILENO, pgid);
+	while(waitpid(-pgid, &wstatus, WUNTRACED) >= 0) {
+		if (WIFSTOPPED(wstatus)) {
+			// stopped with Ctrl-Z
+			// printf("caught ctrl-Z.\n");
+			Job *job = (Job *) List_get(JobList, 0);
+			job->stopped = true;
+			printf("\n");
+			break;
+		} else if (WIFSIGNALED(wstatus)) {
+			// terminated with Ctrl-C 
+			// printf("caught ctrl-C.\n");
+			List_remove(JobList, 0, Job_free);
+			printf("\n");
+			break;
+		}
 	}
 
-	printf("task returned errno: %d\n", errno);
-	printf("ECHILD: %d\n", ECHILD);
-	printf("EINTR: %d\n", EINTR);
+	tcsetpgrp(STDIN_FILENO, getpgid(0));
 
 	// check wait status.
 	if (WIFEXITED(wstatus)) {
 		List_remove(JobList, 0, Job_free);
-	} else if (WIFSIGNALED(wstatus)) {
-		// terminated with Ctrl-C 
-		List_remove(JobList, 0, Job_free);
-	} else if (WIFSTOPPED(wstatus)) {
-		// stopped with Ctrl-Z
-		Job *job = (Job *) List_get(JobList, 0);
-		job->stopped = true;
-	}
-
-	FgGroup = -1;
-}
-
-/**
- * catches and forwards signals.
- */
-static void signalHandler(int signum) {
-	if ((signum == SIGINT) && (FgGroup > 0)) {
-		printf("fg: %d termed with ctrl c. \n", FgGroup);
-		kill(-FgGroup, SIGINT);	// Ctrl-C
-	} else if ((signum == SIGTSTP) && (FgGroup > 0)) {
-		printf("fg: %d stopped with ctrl z. \n", FgGroup);
-		kill(-FgGroup, SIGSTOP);	// Ctrl-Z
-	} else if (signum == SIGCHLD) {
-		// child signal (orphans and zombies?)
-	} else if (signum == SIGPIPE) { 
-		fprintf(stderr, "SIGPIPE caught from process %d! \n", getpid());
-	}
+	} 
 }
 
 /**
