@@ -8,8 +8,12 @@
 #ifndef JOB_H
 #define JOB_H
 
+#include "bool.h"
+
 typedef struct {
 	int pgid; // process group id.
+	int number; // job number.
+	bool stopped; // job is stopped.
 	char *line; // command that was run.
 } Job; 
 
@@ -27,6 +31,12 @@ void Job_free(void *job);
  * start executing a job.
  * kicks off all the jobs in process id.
  */
-void Job_execute(Job *job);
+void Job_execute(const Job *job);
+
+/**
+ * returns the status of a job.
+ * {Running, Stopped, Done}
+ */
+const char *Job_status(Job *job);
 
 #endif

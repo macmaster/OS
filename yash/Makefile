@@ -1,5 +1,5 @@
 CC = gcc
-CFLAGS = -g -Wall -std=c99 # -pedantic
+CFLAGS = -g -Wall -std=gnu99 # -pedantic
 SRC = yash.c List.c Job.c
 BACKUP = $(SRC:.c=.c~)
 OBJ = $(SRC:.c=.o)
