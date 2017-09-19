@@ -9,6 +9,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <unistd.h>
+#include <fcntl.h>
 #include <string.h>
 #include <errno.h>
 #include <sys/wait.h>
@@ -24,6 +25,8 @@
 } Job; */
 
 static int split(char **tokens, const char *line, const char *delim);
+static char *redirError(int err, const char *filename);
+static void redir(char **args);
 
 /**
  * Creates a new job object.
@@ -76,7 +79,6 @@ void Job_execute(Job * job) {
 			signal(SIGPIPE, SIG_DFL);
 			signal(SIGTTOU, SIG_DFL);
 
-
 			// pipe input
 			if(i > 0) { 
 				dup2(prev[0], STDIN_FILENO);
@@ -90,6 +92,7 @@ void Job_execute(Job * job) {
 			}
 
 			split(args, command[i], " \n\t");
+			redir(args); // stream redirection
 			execvp(args[0], args);
 			fprintf(stderr, "yash: %s: command not found\n", args[0]);
 			exit(errno);
@@ -142,3 +145,55 @@ static int split(char **tokens, const char *line, const char *delim) {
 	return count;
 }
 
+static void redir(char ** args) {
+	int fd = -1; // file descriptor.
+	for(char **token = args; *token != NULL; token++){
+		if(!strcmp(*token, ">")){
+			// output redirection.
+			*token++ = NULL;
+			if(!token || (fd = open(*token, O_WRONLY | O_CREAT | O_TRUNC, 0666)) < 0) {
+				fprintf(stderr, "yash: %s\n", redirError(errno, *token));
+				exit(errno);
+			} else {
+				dup2(fd, STDOUT_FILENO);
+			}
+		} else if(!strcmp(*token, "<")){
+			// input redirection. 
+			*token++ = NULL;
+			if(!token || (fd = open(*token, O_RDONLY)) < 0) {
+				fprintf(stderr, "yash: %s\n", redirError(errno, *token));
+				exit(errno);
+			} else {
+				dup2(fd, STDIN_FILENO);
+			}
+		} else if(!strcmp(*token, "2>")){
+			// error redirection.
+			*token++ = NULL;
+			if(!token || (fd = open(*token, O_WRONLY | O_CREAT | O_TRUNC, 0666) < 0)) {
+				fprintf(stderr, "yash: %s\n", redirError(errno, *token));
+				exit(errno);
+			} else {
+				dup2(fd, STDERR_FILENO);
+				freopen(*token, "a", stderr);
+			}
+		}
+	}
+}
+
+static char *redirError(int err, const char *filename) {
+	char msg[50];
+	if (!filename) {
+		return strdup("No path specified");
+	} else if(err == EACCES) {
+		sprintf(msg, "%s: Permission denied", filename);
+		return strdup(msg);
+	} else if(err == EISDIR) {
+		sprintf(msg, "%s: Is a directory", filename);	
+		return strdup(msg);
+	} else if(err == ENOENT) {
+		sprintf(msg, "%s: No such file or directory", filename);	
+		return strdup(msg);
+	} else {
+		return strdup("Bad stream redirection");
+	}
+}

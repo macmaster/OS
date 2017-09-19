@@ -135,6 +135,7 @@ static void foreground(int pgid) {
 		}
 	}
 
+	// regain terminal control.
 	tcsetpgrp(STDIN_FILENO, getpgid(0));
 
 	// check wait status.
