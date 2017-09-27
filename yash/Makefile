@@ -1,26 +1,3 @@
-CC = gcc
-CFLAGS = -g -Wall -std=gnu99 # -pedantic
-SRC = yash.c List.c Job.c
-BACKUP = $(SRC:.c=.c~)
-OBJ = $(SRC:.c=.o)
-MAIN = yash
-
-all: $(MAIN)
-	@echo compiled the yash shell...
-
-$(MAIN): $(OBJ)
-	$(CC) $(CFLAGS) -o $(MAIN) $(OBJ)
-
-# TESTS AND USER PROGRAMS
-test: $(MAIN) $(TEST)
-	./$(MAIN) $(UCODE) $(TEST)
-
-format: 
-	indent $(SRC) -nbad -bap -nbc -bbo -hnl -br -brs -brf -c33 -cd33 -ncdb -ce -ci4 \
-	-cli1 -d0 -di1 -nfc1 -i8 -ip0 -l120 -lp -npcs -nprs -npsl -sai \
-	-saf -saw -ncs -nsc -sob -nfca -cp33 -ss -ts8 -il1
-	$(RM) $(BACKUP)
-
-clean:
-	$(RM) $(MAIN) $(TEST) $(OBJ)
-
+Salted__®7çI¡„"v‘uë	ÐºËgXÿIÅ÷ê{½ÜÂs²íÿvÎ?¦_èFC­“ÕÔKü fÚSÒèg0=ë][ûï‘o| úñÌöŠ -”ççF/Ð¢ÚR¾Áöè1ÓVÍYÀ—28ÒÙ|“kÁ[HÙN²Þ$²éƒGÑKzW~²V—¦j$ƒÃßÑ=íù›5é{é~Á×våNv¾Þí4×A>tì‘Tiö$çsxÙrœ‘G*ÌQ?­_àØ™Ž_ÛãŸJ'	"é³}Ç‡)aO‡†=Ør,2K¦øyüI•®¬³å¨'p'½7†'.CžÆjÎ ²ˆÑÁ¦ó€&´0&¥‘0Õ{Øú±:¤ä~˜é+O/sWIÎGâ{%çéJ¦Xñ’E¬E®/ãl’/×óü¯=¨Ö®npmÛÑ½X>Û#	qñ!å—kÕÈ(×Û}èp(’O·žLè‰±·ñ$¬áuæOZÜl××QR™*’S›ÔiA·Í0\«»ZÙäèâ¬Éiër^Pq{ê±#q•íÏšZ)PÅŸVPzt(¾Ä"’Rÿ¶Ê-ÝmÆÁt¯Û½ÕÐ âëƒµW$Û}c‚,€I4VˆáàÉ70'hÛ¤õ”6t§½*%Ðoû¶½ÖD/U0yBCEÿ
+eÞñíÇï{Ñ¦5LWÛžÂw´.O—„6±·HJÂy”ú7ØŸ
+LÑXóô*XC£!Ûû.Buy9’™aãˆ0ºU_U®
